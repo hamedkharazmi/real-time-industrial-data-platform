@@ -5,4 +5,4 @@ sources:
     database: sensor-data-pipeline-492507
     schema: sensor_data
     tables:
-      - name: sensor_ext
+      - name: sensor_raw

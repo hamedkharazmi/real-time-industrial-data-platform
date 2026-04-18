@@ -1,6 +1,6 @@
 WITH source_data AS (
     SELECT *
-    FROM {{ source('raw', 'sensor_ext') }}
+    FROM {{ source('raw', 'sensor_raw') }}
 ),
 
 renamed AS (
@@ -16,7 +16,7 @@ renamed AS (
 typed AS (
     SELECT
         timestamp_converted AS timestamp,
-        CURRENT_TIMESTAMP() AS ingestion_time,
+        ingestion_time,
 
         -- cast all sensors
         SAFE_CAST(sensor_00 AS FLOAT64) AS sensor_00,
