@@ -1,4 +1,4 @@
-# Real-Time Data Pipeline for Industrial Sensor Data
+# Real-Time Industrial Data Platform
 
 A production-style data engineering project that builds an end-to-end pipeline for ingesting, processing, transforming, and serving industrial sensor data on Google Cloud.
 
