@@ -1,0 +1,1 @@
+{{ sensor_drift_test('stg_sensor') }}
