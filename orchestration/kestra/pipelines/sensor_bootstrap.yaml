@@ -1,0 +1,61 @@
+id: sensor_bootstrap
+namespace: sensor_pipeline
+description: One-time bootstrap of historical sensor data
+
+variables:
+  file_name: "sensor.csv"
+  gcs_path: "sensor_data/raw/{{vars.file_name}}"
+  full_gcs: "gs://{{ kv('GCP_BUCKET_NAME') }}/{{render(vars.gcs_path)}}"
+
+tasks:
+  - id: download_data
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      image: python:3.10-slim
+    commands:
+      - pip install kaggle
+      - mkdir -p ~/.kaggle
+      - echo "{\"username\":\"{{ secret('KAGGLE_USERNAME') }}\",\"key\":\"{{ secret('KAGGLE_KEY') }}\"}" > ~/.kaggle/kaggle.json
+      - chmod 600 ~/.kaggle/kaggle.json
+      - kaggle datasets download -d nphantawee/pump-sensor-data -p ./ --unzip
+    outputFiles:
+      - "*.csv"
+
+  - id: upload_to_gcs
+    type: io.kestra.plugin.gcp.gcs.Upload
+    from: "{{ outputs.download_data.outputFiles[vars.file_name] }}"
+    to: "{{ render(vars.full_gcs) }}"
+
+  - id: create_external_table
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE EXTERNAL TABLE `{{kv('GCP_PROJECT_ID')}}.sensor_data.sensor_ext`
+      OPTIONS (
+        format = 'CSV',
+        uris = ['{{ render(vars.full_gcs) }}'],
+        skip_leading_rows = 1,
+        ignore_unknown_values = TRUE
+      );
+
+  - id: create_raw_table
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE TABLE IF NOT EXISTS `{{ kv('GCP_PROJECT_ID') }}.sensor_data.sensor_raw` AS
+      SELECT *, 1 AS machine_id, CURRENT_TIMESTAMP() AS ingestion_time
+      FROM `{{ kv('GCP_PROJECT_ID') }}.sensor_data.sensor_ext`
+      LIMIT 0;
+
+  - id: cleanup_local
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+
+
+pluginDefaults:
+  - type: io.kestra.plugin.gcp
+    values:
+      serviceAccount: "{{  secret('GCP_SERVICE_ACCOUNT')  }}"
+      projectId: "{{ kv('GCP_PROJECT_ID') }}"
+      location: "{{ kv('GCP_LOCATION') }}"
+      bucket: "{{ kv('GCP_BUCKET_NAME') }}"
+
+      

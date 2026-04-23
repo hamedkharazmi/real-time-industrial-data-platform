@@ -1,0 +1,29 @@
+id: gcp_config
+namespace: sensor_pipeline
+
+description: Store GCP configuration values
+
+tasks:
+  - id: set_project_id
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_PROJECT_ID
+    kvType: STRING
+    value: sensor-data-pipeline-492507
+
+  - id: set_location
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_LOCATION
+    kvType: STRING
+    value: us
+
+  - id: set_bucket
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_BUCKET_NAME
+    kvType: STRING
+    value: sensor-data-lake-hamed
+
+  - id: set_dataset
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_DATASET
+    kvType: STRING
+    value: sensor_data

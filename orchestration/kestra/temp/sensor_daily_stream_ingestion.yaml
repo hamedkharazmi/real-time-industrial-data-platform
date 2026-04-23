@@ -1,0 +1,74 @@
+id: sensor_daily_stream_ingestion
+namespace: sensor_pipeline
+description: Simulate daily sensor stream ingestion
+
+inputs:
+  - id: date
+    type: STRING
+    required: false
+
+  - id: full_refresh
+    type: BOOLEAN
+    defaults: false
+
+variables:
+  tmp_table: "tmp_daily_{{ execution.id }}"
+
+tasks:
+
+  # -------------------------
+  # 1. Extract daily slice (SIMULATION ONLY)
+  # -------------------------
+  - id: extract_daily
+    type: io.kestra.plugin.gcp.bigquery.Query
+    retry:
+      type: constant
+      interval: PT30S
+      maxAttempt: 3
+    sql: |
+      CREATE TABLE `{{ kv('GCP_PROJECT_ID') }}.sensor_data.{{ render(vars.tmp_table) }}` AS
+      SELECT
+        *,
+        1 AS machine_id,
+        CURRENT_TIMESTAMP() AS ingestion_time
+      # FROM `{{ kv('GCP_PROJECT_ID') }}.sensor_data.sensor_ext`
+      # WHERE DATE(TIMESTAMP(timestamp)) = DATE('{{ inputs.date }}')
+      FROM `{{ kv('GCP_PROJECT_ID') }}.sensor_data.sensor_ext`
+      {% if not inputs.full_refresh %}
+      WHERE DATE(TIMESTAMP(timestamp)) = DATE('{{ inputs.date }}')
+      {% endif %}
+
+  # -------------------------
+  # 2. Merge into RAW (IDEMPOTENT + LATE DATA SAFE)
+  # -------------------------
+  - id: merge_raw
+    type: io.kestra.plugin.gcp.bigquery.Query
+    retry:
+      type: constant
+      interval: PT30S
+      maxAttempt: 3
+    sql: |
+      MERGE `{{ kv('GCP_PROJECT_ID') }}.sensor_data.sensor_raw` T
+      USING `{{ kv('GCP_PROJECT_ID') }}.sensor_data.{{ render(vars.tmp_table) }}` S
+      ON T.machine_id = S.machine_id
+      AND T.timestamp = S.timestamp
+
+      WHEN NOT MATCHED THEN
+      INSERT ROW;
+
+  # -------------------------
+  # 3. Cleanup temp (SAFE)
+  # -------------------------
+  - id: cleanup
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      DROP TABLE IF EXISTS `{{ kv('GCP_PROJECT_ID') }}.sensor_data.{{ render(vars.tmp_table) }}`;
+
+pluginDefaults:
+  - type: io.kestra.plugin.gcp
+    values:
+      serviceAccount: "{{ secret('GCP_SERVICE_ACCOUNT') }}"
+      projectId: "{{ kv('GCP_PROJECT_ID') }}"
+      location: "{{ kv('GCP_LOCATION') }}"
+
+      

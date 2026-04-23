@@ -1,0 +1,85 @@
+id: sensor_pipeline
+namespace: sensor_pipeline
+description: Main orchestration pipeline
+
+tasks:
+  - id: bootstrap_if_needed
+    type: io.kestra.core.tasks.flows.Subflow
+    namespace: sensor_pipeline
+    flowId: sensor_bootstrap
+    runIf: "{{ execution.labels['bootstrap'] == 'true' }}"
+
+  - id: wait_stream
+    type: io.kestra.plugin.core.flow.Sleep
+    duration: PT10S
+    # This `wait_stream` is a basic, blocking implementation. More specialized wait types (e.g., with timeouts, specific conditions, or non-blocking) can be integrated later if needed.
+
+  - id: run_dbt
+    type: io.kestra.plugin.dbt.cloud.TriggerRun
+    token: "{{ secret('DBT_CLOUD_API_KEY') }}"
+    accountId: "{{ kv('DBT_CLOUD_ACCOUNT_ID') }}"
+    jobId: "{{ kv('DBT_CLOUD_JOB_ID') }}"
+    baseUrl: "https://yy140.us1.dbt.com"
+    cause: "Kestra streaming pipeline"
+    wait: true
+
+  - id: extract_ml_features
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      SELECT *
+      FROM `{{ kv('GCP_PROJECT_ID') }}.sensor_data.fact_sensor`
+      ORDER BY ingestion_time DESC
+      LIMIT 100
+    
+  - id: ml_inference
+    type: io.kestra.plugin.scripts.python.Script
+    outputFiles:
+      - predictions.json
+    inputFiles:
+      data.json: "{{ outputs.extract_ml_features.rows }}"
+    script: |
+      import json
+      import requests
+      with open("data.json") as f:
+          rows = json.load(f)
+      results = []
+      for row in rows:
+          payload = {
+              "sensor_00": row.get("sensor_00"),
+              "sensor_01": row.get("sensor_01"),
+              "sensor_02": row.get("sensor_02"),
+              "machine_id": row["machine_id"]
+          }
+          res = requests.post(
+              "http://host.docker.internal:8000/predict",
+              json=payload
+          )
+          results.append(res.json())
+      with open("predictions.json", "w") as f:
+          json.dump(results, f)
+    
+  - id: store_predictions
+    type: io.kestra.plugin.gcp.bigquery.Load
+    from: "{{ outputs.ml_inference.outputFiles['predictions.json'] }}"
+    destinationTable: "{{ kv('GCP_PROJECT_ID') }}.sensor_data.ml_predictions"
+    format: JSON
+    
+  - id: log_done
+    type: io.kestra.plugin.core.log.Log
+    message: "Pipeline completed successfully"
+
+
+triggers:
+  - id: schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "*/5 * * * *"
+
+
+pluginDefaults:
+  - type: io.kestra.plugin.gcp
+    values:
+      serviceAccount: "{{ secret('GCP_SERVICE_ACCOUNT') }}"
+      projectId: "{{ kv('GCP_PROJECT_ID') }}"
+      location: "{{ kv('GCP_LOCATION') }}"
+      bucket: "{{ kv('GCP_BUCKET_NAME') }}"
+
