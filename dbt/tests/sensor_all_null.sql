@@ -1,0 +1,1 @@
+{{ sensor_all_null_test('stg_sensor') }}

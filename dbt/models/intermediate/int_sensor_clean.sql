@@ -1,5 +1,4 @@
 SELECT
-    -- *,
     timestamp,
     ingestion_time,
     machine_id,

@@ -6,3 +6,8 @@ sources:
     schema: sensor_data
     tables:
       - name: sensor_raw
+        # loaded_at_field: ingestion_time
+
+        # freshness:
+        #   warn_after: {count: 6, period: hour}
+        #   error_after: {count: 24, period: hour}

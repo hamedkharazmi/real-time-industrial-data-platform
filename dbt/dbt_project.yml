@@ -50,7 +50,7 @@ models:
 
     intermediate:
       +schema: intermediate
-      +materialized: ephemeral
+      +materialized: view
 
     marts:
       +schema: marts

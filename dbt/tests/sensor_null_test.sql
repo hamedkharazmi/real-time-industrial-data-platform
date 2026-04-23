@@ -1,0 +1,1 @@
+{{ sensor_null_ratio_test('stg_sensor', 0.3) }}
