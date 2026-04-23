@@ -1,0 +1,1 @@
+{{ sensor_spike_test('stg_sensor', 50) }}

@@ -10,7 +10,7 @@ SELECT
     machine_id,
     machine_status,
 
-    {{ sensor_feature_factory('sensor_ext') }}
+    {{ sensor_feature_factory(target.schema ~ '_marts', 'fact_sensor') }}
 
 FROM base
 

@@ -1,0 +1,9 @@
+version: 2
+
+models:
+  - name: int_sensor_clean
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - machine_id
+            - timestamp
