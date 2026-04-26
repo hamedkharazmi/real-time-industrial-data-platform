@@ -2,7 +2,7 @@
 
 A production-style data engineering project that builds an end-to-end pipeline for ingesting, processing, transforming, and serving industrial sensor data on Google Cloud.
 
-This project focuses on **data platform design**, enabling real-time analytics and integration with downstream systems such as machine learning services and monitoring dashboards.
+This project focuses on **data platform design**, enabling real-time analytics and **integration with downstream systems such as machine learning services and monitoring dashboards**.
 
 ---
 
